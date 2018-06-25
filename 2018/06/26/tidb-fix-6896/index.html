@@ -68,7 +68,7 @@
 
 
 
-  <meta name="keywords" content="Hexo, NexT" />
+  <meta name="keywords" content="TiDB," />
 
 
 
@@ -79,13 +79,18 @@
 
 
 
-<meta property="og:type" content="website">
-<meta property="og:title" content="Felixxdu&#39;s Blog">
-<meta property="og:url" content="http://yoursite.com/index.html">
+<meta name="description" content="本文记录解决TiDB issue #6879的过程。 问题描述在形如CREATE TABLE IF NOT EXISTS a LIKE b的建表语句当中，IF NOT EXISTS检查似乎没有生效。如下例：在MySQL中：12345678910111213141516171819mysql&amp;gt; show tables like &quot;test%&quot;;+------------------------">
+<meta name="keywords" content="TiDB">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Make &#39;CREATE TABLE IF NOT EXISTS&#39; great again in TiDB">
+<meta property="og:url" content="http://yoursite.com/2018/06/26/tidb-fix-6896/index.html">
 <meta property="og:site_name" content="Felixxdu&#39;s Blog">
+<meta property="og:description" content="本文记录解决TiDB issue #6879的过程。 问题描述在形如CREATE TABLE IF NOT EXISTS a LIKE b的建表语句当中，IF NOT EXISTS检查似乎没有生效。如下例：在MySQL中：12345678910111213141516171819mysql&amp;gt; show tables like &quot;test%&quot;;+------------------------">
 <meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2018-06-25T23:32:06.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Felixxdu&#39;s Blog">
+<meta name="twitter:title" content="Make &#39;CREATE TABLE IF NOT EXISTS&#39; great again in TiDB">
+<meta name="twitter:description" content="本文记录解决TiDB issue #6879的过程。 问题描述在形如CREATE TABLE IF NOT EXISTS a LIKE b的建表语句当中，IF NOT EXISTS检查似乎没有生效。如下例：在MySQL中：12345678910111213141516171819mysql&amp;gt; show tables like &quot;test%&quot;;+------------------------">
 
 
 
@@ -115,13 +120,13 @@
 
 
 
-  <link rel="canonical" href="http://yoursite.com/"/>
+  <link rel="canonical" href="http://yoursite.com/2018/06/26/tidb-fix-6896/"/>
 
 
 
 
 
-  <title>Felixxdu's Blog</title>
+  <title>Make 'CREATE TABLE IF NOT EXISTS' great again in TiDB | Felixxdu's Blog</title>
   
 
 
@@ -140,8 +145,7 @@
     
   
 
-  <div class="container sidebar-position-left 
-  page-home">
+  <div class="container sidebar-position-left page-post-detail">
     <div class="headband"></div>
 
     <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
@@ -214,9 +218,9 @@
         <div class="content-wrap">
           <div id="content" class="content">
             
-  <section id="posts" class="posts-expand">
+
+  <div id="posts" class="posts-expand">
     
-      
 
   
 
@@ -246,9 +250,7 @@
 
         
         
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/06/26/tidb-fix-6896/" itemprop="url">Make 'CREATE TABLE IF NOT EXISTS' great again in TiDB</a></h1>
+          <h1 class="post-title" itemprop="name headline">Make 'CREATE TABLE IF NOT EXISTS' great again in TiDB</h1>
         
 
         <div class="post-meta">
@@ -298,9 +300,7 @@
       
 
       
-        
-          
-            <p>本文记录解决<a href="https://github.com/pingcap/tidb/issues/6879" target="_blank" rel="noopener">TiDB issue #6879</a>的过程。</p>
+        <p>本文记录解决<a href="https://github.com/pingcap/tidb/issues/6879" target="_blank" rel="noopener">TiDB issue #6879</a>的过程。</p>
 <h2 id="问题描述"><a href="#问题描述" class="headerlink" title="问题描述"></a>问题描述</h2><p>在形如<code>CREATE TABLE IF NOT EXISTS a LIKE b</code>的建表语句当中，<code>IF NOT EXISTS</code>检查似乎没有生效。如下例：<br>在MySQL中：<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; show tables like "test%";</span><br><span class="line">+<span class="comment">---------------------------+</span></span><br><span class="line">| Tables_in_dc_test (test%) |</span><br><span class="line">+<span class="comment">---------------------------+</span></span><br><span class="line">| test                      |</span><br><span class="line">| test2                     |</span><br><span class="line">+<span class="comment">---------------------------+</span></span><br><span class="line">2 rows in <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; <span class="keyword">create</span> <span class="keyword">table</span> <span class="keyword">if</span> <span class="keyword">not</span> <span class="keyword">exists</span> test2 <span class="keyword">like</span> <span class="keyword">test</span>;</span><br><span class="line">Query OK, 0 rows affected, 1 warning (0.01 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; show warnings;</span><br><span class="line">+<span class="comment">-------+------+------------------------------+</span></span><br><span class="line">| Level | Code | Message                      |</span><br><span class="line">+<span class="comment">-------+------+------------------------------+</span></span><br><span class="line">| Note  | 1050 | Table 'test2' already exists |</span><br><span class="line">+<span class="comment">-------+------+------------------------------+</span></span><br><span class="line">1 row in <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></p>
 <p>而在TiDB当中：<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">tidb&gt; show tables like "test%";</span><br><span class="line">+<span class="comment">----------------+</span></span><br><span class="line">| Tables_in_test |</span><br><span class="line">+<span class="comment">----------------+</span></span><br><span class="line">| test           |</span><br><span class="line">| test2          |</span><br><span class="line">+<span class="comment">----------------+</span></span><br><span class="line">2 rows in <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br><span class="line"></span><br><span class="line">tidb&gt; <span class="keyword">create</span> <span class="keyword">table</span> <span class="keyword">if</span> <span class="keyword">not</span> <span class="keyword">exists</span> test2 <span class="keyword">like</span> <span class="keyword">test</span>;</span><br><span class="line">ERROR 1050 (42S01): Table 'test.test2' already exists</span><br></pre></td></tr></table></figure></p>
 <p>如果没有<code>LIKE</code> clause, <code>CREATE TABLE</code>语句中的<code>IF NOT EXISTS</code>检查确实生效了, 但是还是有一点小问题，就是TiDB并没有按照预期生成一个Warning。如下：<br>在MySQL中：<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; create table if not exists test2 ( a bigint);</span><br><span class="line">Query OK, 0 rows affected, 1 warning (0.02 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; show warnings;</span><br><span class="line">+<span class="comment">-------+------+------------------------------+</span></span><br><span class="line">| Level | Code | Message                      |</span><br><span class="line">+<span class="comment">-------+------+------------------------------+</span></span><br><span class="line">| Note  | 1050 | Table 'test2' already exists |</span><br><span class="line">+<span class="comment">-------+------+------------------------------+</span></span><br><span class="line">1 row in <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></p>
@@ -321,8 +321,6 @@
 <p>可以看到，对于所有的Warning信息，这里第一个字段返回的都是<code>Warning</code>，而在本场景中，MySQL返回的一个<code>Level</code>为<code>Note</code>的Warning。<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; show warnings;</span><br><span class="line">+<span class="comment">-------+------+------------------------------+</span></span><br><span class="line">| Level | Code | Message                      |</span><br><span class="line">+<span class="comment">-------+------+------------------------------+</span></span><br><span class="line">| Note  | 1050 | Table 'test2' already exists |</span><br><span class="line">+<span class="comment">-------+------+------------------------------+</span></span><br><span class="line">1 row in <span class="keyword">set</span> (<span class="number">0.00</span> sec)</span><br></pre></td></tr></table></figure></p>
 <p>因此，这里我们还需要修改TiDB的Waring系统，显式支持插入不同Level的Warning。<br>以上就是解决这个问题的整个过程。具体细节可见<a href="https://github.com/pingcap/tidb/pull/6896" target="_blank" rel="noopener">对应 PR</a>。</p>
 
-          
-        
       
     </div>
     
@@ -337,134 +335,36 @@
 
     <footer class="post-footer">
       
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/06/18/一点感想/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Felixxdu(Du Chuan)">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/doge.jpg">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Felixxdu's Blog">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/06/18/一点感想/" itemprop="url">一点感想</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-06-18T23:06:58+08:00">
-                2018-06-18
-              </time>
-            
-
-            
-
-            
-          </span>
-
+        <div class="post-tags">
           
-
+            <a href="/tags/TiDB/" rel="tag"># TiDB</a>
           
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
         </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>&nbsp;&nbsp;&nbsp;&nbsp;最近这一年多断断续续一直在往TiDB中提交一些修改，前两天看了一些github提交记录，发现竟然已经累计了60来个PR了。考虑到最近这一年基本处于疯狂加班的节奏，另外忙里偷闲还基本上刷完了之前列的十几本书的读书清单，我觉得这也算一个不大不小的成就吧，值得mark一下。<br>&nbsp;&nbsp;&nbsp;&nbsp;话说回来，虽然17年中旬才开始给TiDB提交PR，其实在之前一年多以前，大概在2016年4月份左右,就听说过TiDB这个项目了。当时我的主要工作也是车一个SQL执行引擎，所以对分布式数据库业界的相关新闻还是比较关注的。虽然数据库是一个轮子高发领域，各种轮子五花八门，但是在国内，数据库，特别是分布式数据库这块的轮子，基本还是几个大厂在车，要么不开源，要么开源了社区也不甚活跃。像TiDB这样要从头车一个分布式数据库，并且还是完全开源的方式来搞，确实让我印象深刻。后面不久组里一个小哥离职投奔PingCAP，于是后面我借着面基的名义陆陆续续参加了TiDB几次线下Meetup，也由此认识了很多TiDB社区的小伙伴。<br>&nbsp;&nbsp;&nbsp;&nbsp;16年底从北京回到成都以后，工作重心发生了一些变化，从之前的纯做infra，转变为更多地要面对业务层面的需求。不过做了几年infra，自己本身对数据库内核还是很感兴趣的，所以工作之余，开始研究TiDB的实现，并且搭了一套TiDB，在开发环境里代替MySQL。我们都知道，MySQL经过多年的发展，其SQL语法是比较复杂的。TiDB虽然全面兼容MySQL的语法和协议，但是因为没有复用 MySQL代码，肯定不可能做到100%兼容，落实到一些具体的语句上，肯定会和MySQL有一些区别。因为之前我也一直在做OLAP系统的SQL引擎的开发工作，对这一块比较熟悉，在遇到这方面问题后，感觉解决起来也并不很麻烦，因此慢慢开始在这个方面给TiDB提一些PR。到后面熟悉了以后，有时间的话也会到TiDB的issue list上捞相关的issue解决，主要集中于SQL Parser, 表达式计算和MySQL兼容性等方面。最近抽空在做的是和聚合函数相关的一些Feature。<br>&nbsp;&nbsp;&nbsp;&nbsp; 因为平时工作还是比较忙，加班也是家常便饭,因此给TiDB提交PR, 回复Review意见的时间段基本都集中在周末，晚上老婆睡觉以后，或者午休间隙。这样有一个问题是时间段比较离散，很难有长时间的连贯思考的时间。因此现阶段一方面我在提PR的时候会选择一些相对较小，独立一些的Feature。另一方面，我尽量把开发放在时间相对充裕的周末，把晚上和其他零碎时间用来查看和回复Review意见，Update代码和跑回归测试。这样算下来，平均提交一个PR，算上开发，测试，和社区小伙伴沟通，大概要消耗3到5个工时。不过这个时间投入我觉得倒是非常划算，一是因为我本身对数据库就非常感兴趣，把参与TiDB社区开发当成了一种兴趣，可以看做是工作之余的一种放松，二是我一直在从事数据库相关的工作，包括之前OLAP SQL引擎的运行时优化相关工作, 和现在云数据库相关的工作，其实和在社区所做的事情都是密切相关的。比如一个MySQL Builtin函数, 在各种极端输入下的表现是怎样的，或是SQL_MODE的各种组合对这个Builtin函数的行为有什么样的影响，这些问题在平时工作中，我可能很难考虑得非常周全；但是要在社区中提一个PR实现这个Builtin函数，我就非得把这些问题考虑清楚，并经受社区小伙伴各种Case的轰炸考验。等这个PR顺利被Commit，这些细节我也烂熟于心了。<br>&nbsp;&nbsp;&nbsp;&nbsp;说到社区，我觉得TiDB做得相当不错。一方面PingCAPers都很活跃，在GitHub上提的Issue一般很快就能得到回复, 有什么疑问通过GitHub,微信群甚至知乎提问等很快都能得到反馈；另一方面更重要的是在Review PR的时候社区小伙伴能保持比较严谨的态度。就我的经历而言，我在开发过程中没有注意到的一些Corner Case和细节错误，基本都能在Review PR过程被翻出来，这不仅需要Reviewer理清楚PR对应Feature的相关细节，构造出可能有问题的场景，还需要Reviewer理解PR作者的开发思路。其中需要花费的精力，常常不低于开发这个Feature本身。此外，还有一个我觉得很赞的方面是TiDB花了很多心思来构建从UT,FT到集成测试的一系列测试框架，让我在参与开发工程中比较容易对自己开发的Feature进行各个方位的测试，节省了很多来回捣腾的麻烦。<br>&nbsp;&nbsp;&nbsp;&nbsp;总的来说，参与TiDB社区是一件非常有意思的事情，给我带来很多收获，我也会继续关注TiDB项目的进展。短时间来看，我的计划主要还是抽空完成手头聚合函数相关的一些Feature，包括对MySQL聚合函数STDDEV，VARIANCE等的支持，以及在TiKV Coprocessor侧的对应改动。之后，我打算看看能不能够结合我之前在OLAP SQL引擎的运行时优化方面的经验，提升TiDB在OLAP领域的能力。不过这个是一个比较大的目标了，到时候还要和社区的小伙伴多多讨论。</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
       
 
       
       
-        <div class="post-eof"></div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/06/18/一点感想/" rel="next" title="一点感想">
+                <i class="fa fa-chevron-left"></i> 一点感想
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
       
     </footer>
   </div>
@@ -474,10 +374,11 @@
   </article>
 
 
-    
-  </section>
 
-  
+    <div class="post-spread">
+      
+    </div>
+  </div>
 
 
           </div>
@@ -485,6 +386,10 @@
 
 
           
+
+  
+
+
 
         </div>
         
@@ -505,8 +410,17 @@
       
 
       
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
 
-      <section class="site-overview-wrap sidebar-panel sidebar-panel-active">
+      <section class="site-overview-wrap sidebar-panel">
         <div class="site-overview">
           <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
             
@@ -577,6 +491,22 @@
         </div>
       </section>
 
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#问题描述"><span class="nav-number">1.</span> <span class="nav-text">问题描述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#问题分析"><span class="nav-number">2.</span> <span class="nav-text">问题分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#问题解决"><span class="nav-number">3.</span> <span class="nav-text">问题解决</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
       
 
       
@@ -717,6 +647,10 @@
 
 
   
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
 
   
 
